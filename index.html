@@ -87,6 +87,52 @@
 				font-size: 14px;
 				cursor: pointer;
 			}
+			/* RESPONSIVE */
+			@media (max-width: 1024px) {
+				.answer-sheet {
+					grid-template-columns: repeat(2, 1fr);
+				}
+
+				.column {
+					border-right: none;
+				}
+
+				.column:nth-child(odd) {
+					border-right: 2px solid #999;
+				}
+			}
+
+			@media (max-width: 600px) {
+				.answer-sheet {
+					grid-template-columns: 1fr;
+				}
+
+				.column {
+					border-right: none !important;
+					border-bottom: 2px solid #999;
+				}
+			}
+
+			/* MARK BUTTONS */
+			.mark {
+				margin-left: auto;
+				display: flex;
+				gap: 4px;
+			}
+
+			.mark button {
+				font-size: 12px;
+				padding: 2px 8px;
+				cursor: pointer;
+			}
+
+			.question.right {
+				background-color: #e6f7e6;
+			}
+
+			.question.wrong {
+				background-color: #fbe6e6;
+			}
 		</style>
 	</head>
 
@@ -134,6 +180,7 @@
 
 						const qDiv = document.createElement("div");
 						qDiv.className = "question";
+						qDiv.dataset.question = qNum;
 
 						const num = document.createElement("div");
 						num.className = "q-number";
@@ -150,7 +197,13 @@
 							input.name = "q" + qNum;
 							input.value = letter;
 							input.onchange = () => {
-								answers[sectionKey][qNum] = letter;
+								const current = answers[sectionKey][qNum] || { mark: null };
+
+								answers[sectionKey][qNum] = {
+									answer: letter,
+									mark: current.mark,
+								};
+
 								updateCount();
 							};
 
@@ -162,6 +215,16 @@
 						qDiv.appendChild(num);
 						qDiv.appendChild(opts);
 						col.appendChild(qDiv);
+
+						const mark = document.createElement("div");
+						mark.className = "mark";
+
+						const markBtn = document.createElement("button");
+						markBtn.textContent = "MARK";
+						markBtn.onclick = () => toggleMark(sectionKey, qNum, qDiv);
+
+						mark.appendChild(markBtn);
+						qDiv.appendChild(mark);
 					}
 
 					container.appendChild(col);
@@ -169,11 +232,15 @@
 			}
 
 			function updateCount() {
+				const countAnswered = (section) =>
+					Object.values(answers[section]).filter((item) => item.answer !== null)
+						.length;
+
 				document.getElementById("listeningCount").textContent =
-					Object.keys(answers.listening).length + " / 100";
+					countAnswered("listening") + " / 100";
 
 				document.getElementById("readingCount").textContent =
-					Object.keys(answers.reading).length + " / 100";
+					countAnswered("reading") + " / 100";
 			}
 
 			function exportJSON() {
@@ -201,13 +268,24 @@
 					["listening", "reading"].forEach((section) => {
 						if (!data[section]) return;
 						for (const q in data[section]) {
-							const value = data[section][q];
-							const input = document.querySelector(
-								`input[name="q${q}"][value="${value}"]`
-							);
-							if (input) {
-								input.checked = true;
-								answers[section][q] = value;
+							const item = data[section][q];
+
+							if (item.answer) {
+								const input = document.querySelector(
+									`input[name="q${q}"][value="${item.answer}"]`
+								);
+								if (input) input.checked = true;
+							}
+
+							answers[section][q] = {
+								answer: item.answer || null,
+								mark: item.mark || null,
+							};
+
+							const qDiv = document.querySelector(`[data-question="${q}"]`);
+							if (qDiv) {
+								qDiv.classList.remove("right", "wrong");
+								if (item.mark) qDiv.classList.add(item.mark);
 							}
 						}
 					});
@@ -229,6 +307,27 @@
 			createSection("listening", 1, 100, "listening");
 			createSection("reading", 101, 200, "reading");
 			updateCount();
+
+			function toggleMark(section, qNum, element) {
+				const current = answers[section][qNum] || { answer: null, mark: null };
+
+				let nextMark;
+				if (current.mark === null) {
+					nextMark = "right";
+				} else if (current.mark === "right") {
+					nextMark = "wrong";
+				} else {
+					nextMark = null;
+				}
+
+				answers[section][qNum] = {
+					answer: current.answer,
+					mark: nextMark,
+				};
+
+				element.classList.remove("right", "wrong");
+				if (nextMark) element.classList.add(nextMark);
+			}
 		</script>
 	</body>
 </html>
