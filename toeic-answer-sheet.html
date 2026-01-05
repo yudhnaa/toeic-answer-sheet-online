@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+	<head>
+		<meta charset="UTF-8" />
+		<title>TOEIC Answer Sheet</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				margin: 20px;
+			}
+
+			h1 {
+				text-align: center;
+			}
+
+			.section-title {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-top: 30px;
+			}
+
+			.counter {
+				font-weight: bold;
+				font-size: 15px;
+			}
+
+			/* ANSWER SHEET */
+			.answer-sheet {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				margin-top: 10px;
+				border: 1px solid #999;
+			}
+
+			/* COLUMN */
+			.column {
+				padding: 8px 10px;
+			}
+
+			.column:not(:last-child) {
+				border-right: 2px solid #999; /* đường kẻ chia cột */
+			}
+
+			/* QUESTION ROW */
+			.question {
+				display: flex;
+				align-items: center;
+				margin-bottom: 6px;
+				font-size: 14px;
+			}
+
+			.q-number {
+				width: 32px;
+				font-weight: bold;
+			}
+
+			/* OPTIONS */
+			.options {
+				display: flex;
+				gap: 10px;
+			}
+
+			/* RADIO TO */
+			.options input[type="radio"] {
+				transform: scale(1.4); /* làm nút to */
+				cursor: pointer;
+				margin-right: 2px;
+			}
+
+			.options label {
+				display: flex;
+				align-items: center;
+				gap: 3px;
+				cursor: pointer;
+			}
+
+			/* BUTTONS */
+			.controls {
+				margin-top: 30px;
+				display: flex;
+				gap: 12px;
+			}
+
+			button {
+				padding: 8px 14px;
+				font-size: 14px;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+
+	<body>
+		<h1>TOEIC Answer Sheet</h1>
+
+		<!-- LISTENING -->
+		<div class="section-title">
+			<h2>Listening (1–100)</h2>
+			<div class="counter" id="listeningCount">0 / 100</div>
+		</div>
+		<div id="listening" class="answer-sheet"></div>
+
+		<!-- READING -->
+		<div class="section-title">
+			<h2>Reading (101–200)</h2>
+			<div class="counter" id="readingCount">0 / 100</div>
+		</div>
+		<div id="reading" class="answer-sheet"></div>
+
+		<div class="controls">
+			<button onclick="exportJSON()">Xuất JSON</button>
+			<input type="file" accept=".json" onchange="importJSON(event)" />
+			<button onclick="resetAll()">Reset</button>
+		</div>
+
+		<script>
+			const answers = {
+				listening: {},
+				reading: {},
+			};
+
+			function createSection(containerId, start, end, sectionKey) {
+				const container = document.getElementById(containerId);
+				const total = end - start + 1;
+				const perColumn = 25;
+
+				for (let c = 0; c < 4; c++) {
+					const col = document.createElement("div");
+					col.className = "column";
+
+					for (let i = 0; i < perColumn; i++) {
+						const qNum = start + c * perColumn + i;
+						if (qNum > end) break;
+
+						const qDiv = document.createElement("div");
+						qDiv.className = "question";
+
+						const num = document.createElement("div");
+						num.className = "q-number";
+						num.textContent = qNum;
+
+						const opts = document.createElement("div");
+						opts.className = "options";
+
+						["A", "B", "C", "D"].forEach((letter) => {
+							const label = document.createElement("label");
+							const input = document.createElement("input");
+
+							input.type = "radio";
+							input.name = "q" + qNum;
+							input.value = letter;
+							input.onchange = () => {
+								answers[sectionKey][qNum] = letter;
+								updateCount();
+							};
+
+							label.appendChild(input);
+							label.append(letter);
+							opts.appendChild(label);
+						});
+
+						qDiv.appendChild(num);
+						qDiv.appendChild(opts);
+						col.appendChild(qDiv);
+					}
+
+					container.appendChild(col);
+				}
+			}
+
+			function updateCount() {
+				document.getElementById("listeningCount").textContent =
+					Object.keys(answers.listening).length + " / 100";
+
+				document.getElementById("readingCount").textContent =
+					Object.keys(answers.reading).length + " / 100";
+			}
+
+			function exportJSON() {
+				const data = JSON.stringify(answers, null, 2);
+				const blob = new Blob([data], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = "toeic_answers.json";
+				a.click();
+				URL.revokeObjectURL(url);
+			}
+
+			function importJSON(event) {
+				const file = event.target.files[0];
+				if (!file) return;
+
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					const data = JSON.parse(e.target.result);
+
+					resetAll(false);
+
+					["listening", "reading"].forEach((section) => {
+						if (!data[section]) return;
+						for (const q in data[section]) {
+							const value = data[section][q];
+							const input = document.querySelector(
+								`input[name="q${q}"][value="${value}"]`
+							);
+							if (input) {
+								input.checked = true;
+								answers[section][q] = value;
+							}
+						}
+					});
+
+					updateCount();
+				};
+				reader.readAsText(file);
+			}
+
+			function resetAll(update = true) {
+				document
+					.querySelectorAll("input[type=radio]")
+					.forEach((i) => (i.checked = false));
+				answers.listening = {};
+				answers.reading = {};
+				if (update) updateCount();
+			}
+
+			createSection("listening", 1, 100, "listening");
+			createSection("reading", 101, 200, "reading");
+			updateCount();
+		</script>
+	</body>
+</html>
